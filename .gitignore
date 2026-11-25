@@ -1,3 +1,4 @@
 .idea/
 .env
 /valkey/
+/app/vendor/
