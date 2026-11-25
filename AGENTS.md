@@ -26,7 +26,7 @@
 - **Демонстрационная страница** — HTML + JavaScript + Tailwind CSS + PHP, фронтенд, наглядно
   показывающий работу API в браузере.
 
-## Архитектура (4 слоя, паттерн Strategy)
+## Архитектура (ядро — 4 слоя, паттерн Strategy; сверху HTTP-слой)
 
 1. **Transport** — точка доступа с ресурсами, обёртка над Guzzle. Отвечает за HTTP-транспорт,
    таймауты и ретраи. Работает с абстракцией `ResourceInterface`, не зная о домене.
@@ -35,7 +35,8 @@
 3. **Facade / Client** — конвейер: вход → параметры → Transport → кэш → ответ. Управляет
    ретраями и переводит транспортные ошибки в доменные исключения.
 4. **DTO** — immutable-объекты данных с внутренней валидацией (отклоняют плохие входные данные).
-5. **API layer** — роутер + контроллеры под префиксом `/api/v1/`, отдающие JSON.
+5. **API layer (HTTP, над ядром)** — роутер + контроллеры под префиксом `/api/v1/`,
+   отдающие JSON.
 
 Базовый адрес checko API: `https://api.checko.ru/v2/`. Все запросы — `POST`, тело
 `application/json`, ключ `key` в теле. Ресурсы: `/company`, `/entrepreneur`, `/person`,
@@ -46,7 +47,13 @@
 
 - [`docs/adr/0001-wrap-checko-api.md`](docs/adr/0001-wrap-checko-api.md) — архитектура и
   обоснование.
+- [`docs/adr/0002-cache-policy.md`](docs/adr/0002-cache-policy.md) — кэш: TTL 15 минут,
+  ключ без API-ключа, fail-open.
+- [`docs/checko-api-errors.md`](docs/checko-api-errors.md) — формат ответа checko, таблица
+  распознавания ошибок, лимиты и оплата.
 - [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — принятые термины (единый язык).
+- [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md) — карта «требование ТЗ → реализация».
+- [`docs/README.md`](docs/README.md) — индекс документации.
 
 ## Конвенции и правила
 
@@ -55,9 +62,13 @@
   реализующий `ResourceInterface`, плюс DTO. Transport и Facade не меняются (открыт/закрыт).
 - **Валидация — в DTO.** Объект отклоняет некорректные данные при создании.
 - **Ретраи — только на таймаут/соединение** (`ConnectException`), 3 попытки с экспоненциальной
-  задержкой. Платные 5xx от checko ретраем не пытаем (тарификация за запрос).
+  задержкой. 5xx от checko не ретраим: они не тарифицируются, но повтор обычно бесполезен и
+  только задерживает ответ.
 - **Кэш через PSR-16.** Не привязывать домен к Valkey напрямую — держать абстракцию.
+  TTL — 15 минут, ключ без API-ключа, ошибки не кэшируются, Valkey недоступен → fail-open.
 - **Логирование — минимальное:** факт запроса/результата, без углубления в детали API.
+- **Своей аутентификации нет.** Осознанно: ключ checko хранится только на сервере и
+  клиенту не передаётся; этого достаточно для тестового задания.
 - **Ошибки → HTTP** через единый `ExceptionHandler`:
   `InvalidInputException`→422, `AuthException`→401, `ResourceNotFoundException`→404,
   `CheckoApiException`→502, `RateLimitException`→429, `TimeoutException`→504.
@@ -71,12 +82,13 @@
 
 ## Документация API
 
-Swagger/OpenAPI генерируется из аннотаций swagger-php → [`openapi.yaml`](openapi.yaml).
+Swagger/OpenAPI: аннотации swagger-php → `openapi.yaml`, генерируется при сборке.
 
 ## Окружение разработки и демо-страница
 
 - **Запуск проекта** — через Docker (`docker-compose.yml`): поднимает PHP, Valkey.
-  Основные команды — в [`Makefile`](Makefile) (`make install`, `make run`, `make swagger` и т.д.).
+  Основные команды — в [`Makefile`](Makefile) (`make up`, `make run`, `make composer-install`,
+  `make down` и т.д.).
 - **Демо-страница** — отдельный веб-интерфейс (HTML + JS + Tailwind CSS + PHP), который
   обращается к `/api/v1/` и показывает результаты запросов к checko в браузере. Не часть ядра API,
   а демонстрационный слой поверх него.
