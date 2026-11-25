@@ -16,13 +16,14 @@
 
 - **PHP** (без фреймворка), **PSR-4** автозагрузка, **Composer**.
 - **Guzzle** — HTTP-клиент для внешних запросов.
-- **swagger-php** — генерация OpenAPI (`openapi.yaml`) из аннотаций.
+- **PSR-7** (`guzzlehttp/psr7`) — HTTP-запрос и ответ в API-слое.
+- **vlucas/phpdotenv** — загрузка `.env` при локальном запуске (в Docker — через `env_file`).
+- **OpenAPI-спецификация** — `app/openapi.yaml`, поддерживается вручную (без аннотаций в коде).
 - **Valkey** (форк Redis) — кэш ответов checko, доступ через абстракцию **PSR-16**.
 - Токен checko — в переменной среды (`env`), проверка наличия при старте (fail fast).
 - **Docker** — окружение разработки: сборка и запуск всего стека (PHP, Valkey) через
   `docker-compose.yml`. Назначение сервисов — в комментарии к файлу.
-- **Makefile** — основные команды разработки (установка зависимостей, генерация swagger,
-  запуск, проверки). Удобен для воспроизводимого старта проекта.
+- **Makefile** — основные команды разработки (установка зависимостей, запуск, проверки). Удобен для воспроизводимого старта проекта.
 - **Демонстрационная страница** — HTML + JavaScript + Tailwind CSS + PHP, фронтенд, наглядно
   показывающий работу API в браузере.
 
@@ -38,6 +39,10 @@
 5. **API layer (HTTP, над ядром)** — роутер + контроллеры под префиксом `/api/v1/`,
    отдающие JSON.
 
+Раскладка каталогов повторяет Laravel-скелет (самого фреймворка нет): код в `app/app/`
+(PSR-4 `App\`), `bootstrap/app.php`, `config/*.php` (+ хелперы `env()`/`config()`),
+`routes/web.php` и `routes/api.php`, `public/index.php`, `resources/views/`, `storage/`.
+
 Базовый адрес checko API: `https://api.checko.ru/v2/`. Все запросы — `POST`, тело
 `application/json`, ключ `key` в теле. Ресурсы: `/company`, `/entrepreneur`, `/person`,
 `/finances`, `/reliability`, `/timeline`, `/legal-cases`, `/enforcements`, `/contracts`,
@@ -47,7 +52,7 @@
 
 - [`docs/adr/0001-wrap-checko-api.md`](docs/adr/0001-wrap-checko-api.md) — архитектура и
   обоснование.
-- [`docs/adr/0002-cache-policy.md`](docs/adr/0002-cache-policy.md) — кэш: TTL 15 минут,
+- [`docs/adr/0002-cache-policy.md`](docs/adr/0002-cache-policy.md) — кэш: TTL 1 час,
   ключ без API-ключа, fail-open.
 - [`docs/checko-api-errors.md`](docs/checko-api-errors.md) — формат ответа checko, таблица
   распознавания ошибок, лимиты и оплата.
@@ -57,6 +62,8 @@
 
 ## Конвенции и правила
 
+- **При написании кода использовать скилл ponytail.** Минимальное изменение, которое
+  полностью решает задачу; избегать over-engineering и лишнего раздувания кода.
 - **ООП без фреймворка.** Никаких Laravel/Symfony/Slim — только чистый PHP + Guzzle.
 - **Один ресурс = один класс-стратегия.** Добавить эндпоинт checko = добавить класс,
   реализующий `ResourceInterface`, плюс DTO. Transport и Facade не меняются (открыт/закрыт).
@@ -65,14 +72,15 @@
   задержкой. 5xx от checko не ретраим: они не тарифицируются, но повтор обычно бесполезен и
   только задерживает ответ.
 - **Кэш через PSR-16.** Не привязывать домен к Valkey напрямую — держать абстракцию.
-  TTL — 15 минут, ключ без API-ключа, ошибки не кэшируются, Valkey недоступен → fail-open.
+  TTL — 1 час, ключ без API-ключа, ошибки не кэшируются, Valkey недоступен → fail-open.
 - **Логирование — минимальное:** факт запроса/результата, без углубления в детали API.
 - **Своей аутентификации нет.** Осознанно: ключ checko хранится только на сервере и
   клиенту не передаётся; этого достаточно для тестового задания.
-- **Ошибки → HTTP** через единый `ExceptionHandler`:
-  `InvalidInputException`→422, `AuthException`→401, `ResourceNotFoundException`→404,
-  `CheckoApiException`→502, `RateLimitException`→429, `TimeoutException`→504.
-  Формат ответа: `{ "error": { "type", "message", "code" } }`.
+- **Ошибки → HTTP** через единый `ExceptionHandler` и `ApiException` с фабриками
+  (`invalidInput`, `auth`, `notFound`, `api`, `rateLimit`, `timeout`). В ответе
+  `error.type` сохраняет имена: `InvalidInputException`→422, `AuthException`→401,
+  `ResourceNotFoundException`→404, `CheckoApiException`→502, `RateLimitException`→429,
+  `TimeoutException`→504. Формат: `{ "error": { "type", "message", "code" } }`.
 
 ## Как расширять
 
@@ -82,7 +90,7 @@
 
 ## Документация API
 
-Swagger/OpenAPI: аннотации swagger-php → `openapi.yaml`, генерируется при сборке.
+Swagger/OpenAPI: спецификация `app/openapi.yaml` поддерживается вручную; интерактивная Swagger UI — `/docs/`.
 
 ## Окружение разработки и демо-страница
 

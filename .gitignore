@@ -2,3 +2,5 @@
 .env
 /valkey/
 /app/vendor/
+
+/app/storage/

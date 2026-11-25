@@ -8,16 +8,22 @@
         "ext-json": "*",
         "ext-redis": "*",
         "guzzlehttp/guzzle": "^7.9",
-        "psr/simple-cache": "^3.0"
+        "guzzlehttp/psr7": "^2.13",
+        "psr/http-message": "^2.0",
+        "psr/simple-cache": "^3.0",
+        "vlucas/phpdotenv": "^5.8"
     },
     "autoload": {
         "psr-4": {
-            "Checko\\": "src/"
-        }
+            "App\\": "app/"
+        },
+        "files": [
+            "app/Support/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
-            "Checko\\Tests\\": "tests/"
+            "App\\Tests\\": "tests/"
         }
     },
     "config": {

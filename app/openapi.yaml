@@ -1,0 +1,248 @@
+openapi: 3.1.0
+info:
+  title: checko-api
+  description: 'REST API над checko.ru без фреймворка.'
+  version: 1.0.0
+servers:
+  -
+    url: 'http://localhost:8080'
+    description: 'Local development'
+paths:
+  /api/v1/company:
+    get:
+      tags:
+        - Company
+      summary: 'Данные организации'
+      description: 'Данные юрлица из ЕГРЮЛ. Нужно передать ровно один параметр: inn или ogrn.'
+      parameters:
+        -
+          name: inn
+          in: query
+          description: '10 или 12 цифр'
+          required: false
+          schema:
+            type: string
+            example: '7707083893'
+        -
+          name: ogrn
+          in: query
+          description: '13 или 15 цифр'
+          required: false
+          schema:
+            type: string
+            example: '1027700132195'
+      responses:
+        '200':
+          description: 'Данные организации'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/ResponseCompanyDto' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+        '429':
+          $ref: '#/components/responses/RateLimit'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/Timeout'
+components:
+  schemas:
+    ResponseCompanyDto:
+      type: object
+      description: 'Данные организации из ЕГРЮЛ'
+      properties:
+        ogrn:
+          type: string
+          example: '1027700132195'
+        inn:
+          type: string
+          example: '7707083893'
+        kpp:
+          type:
+            - string
+            - 'null'
+        okpo:
+          type:
+            - string
+            - 'null'
+        registrationDate:
+          type:
+            - string
+            - 'null'
+          format: date
+        ogrnDate:
+          type:
+            - string
+            - 'null'
+          format: date
+        actualityDate:
+          type:
+            - string
+            - 'null'
+          format: date
+        nameShort:
+          type: string
+          example: 'ПАО СБЕРБАНК'
+        nameFull:
+          type:
+            - string
+            - 'null'
+        nameEnglish:
+          type:
+            - string
+            - 'null'
+        status:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        region:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        legalForm:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        ownershipForm:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        okogu:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        okato:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        oktmo:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        address:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        primaryOkved:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        additionalOkveds:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        capital:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        heads:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        founders:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        contacts:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        licenses:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        branches:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        representations:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        registryHolder:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        flags:
+          type: object
+          additionalProperties: true
+        additional:
+          type: object
+          additionalProperties: true
+    Error:
+      type: object
+      properties:
+        type:
+          type: string
+          example: InvalidInputException
+        message:
+          type: string
+        code:
+          type: integer
+          example: 422
+  responses:
+    InvalidInput:
+      description: 'Некорректный вход (422)'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: 'Ключ checko недействителен (401)'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: 'checko не нашёл объект (404)'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimit:
+      description: 'Превышен лимит checko (429)'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BadGateway:
+      description: 'Неожиданный ответ checko (502)'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Timeout:
+      description: 'checko не ответил после ретраев (504)'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+tags:
+  -
+    name: Company
+    description: Company
