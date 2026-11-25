@@ -1,0 +1,98 @@
+services:
+  nginx:
+    build:
+      context: ./docker/development
+      dockerfile: nginx/Dockerfile
+    volumes:
+      - ./app:/app
+    depends_on:
+      - php-fpm
+    ports:
+      - "8080:80"
+    networks:
+      - network
+
+  php-fpm:
+    build:
+      context: ./docker/development
+      dockerfile: php-fpm/Dockerfile
+    environment:
+      PHP_IDE_CONFIG: "serverName=${APP_NAME}"
+    volumes:
+      - ./app:/app
+      - ./docker/development/php-config/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini:ro
+    depends_on:
+      - valkey
+    networks:
+      - network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  php-cli:
+    build:
+      context: ./docker/development
+      dockerfile: php-cli/Dockerfile
+    environment:
+      PHP_IDE_CONFIG: "serverName=${APP_NAME}"
+    volumes:
+      - ./app:/app
+      - ./composer:/appuser/.composer/cache
+      - ./docker/development/php-config/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini:ro
+    depends_on:
+      - valkey
+    networks:
+      - network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  node-watch:
+    image: node:26.11-alpine
+    volumes:
+      - ./app:/app
+    working_dir: /app
+    command: sh -c "until [ -f .ready ] ; do sleep 1 ; done && npm run watch"
+    networks:
+      - network
+
+  node:
+    image: node:26.11-alpine
+    volumes:
+      - ./app:/app
+    working_dir: /app
+    networks:
+      - network
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    volumes:
+      - ./valkey:/data
+    command:
+      - 'valkey-server'
+      - '--databases 2'
+      - '--save 900 1'
+      - '--save 300 10'
+      - '--save 60 10000'
+      - '--requirepass ${REDIS_PASSWORD}'
+    networks:
+      - network
+
+  valkey-ui:
+    image: rediscommander/redis-commander
+    ports:
+      - '8081:8081'
+    environment:
+      - REDIS_HOST=valkey
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    depends_on:
+      - valkey
+    networks:
+      - network
+
+networks:
+  network:
+    driver: bridge
+
+volumes:
+  valkey:
+  composer:
